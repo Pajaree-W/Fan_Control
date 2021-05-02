@@ -1,0 +1,307 @@
+#define BLYNK_PRINT Serial            
+#include <WiFi.h>
+#include <BlynkSimpleEsp32.h>
+#include <DHT.h>
+
+BlynkTimer timer;
+
+void checkPhysicalButton();
+
+int relay1State = HIGH;
+int pushButton1State = HIGH;
+
+int relay2State = HIGH;
+int pushButton2State = HIGH;
+
+int relay3State = HIGH;
+int pushButton3State = HIGH;
+
+int relay4State = HIGH;
+int pushButton4State = HIGH;
+
+int AUTO_MODE = HIGH ;
+int TIME_MODE = HIGH ;
+
+int TIME_STATE = HIGH ;
+
+int NOW_STATE = 0 ;
+
+int MANU ;
+int T_SET ;
+
+#define AUTH "SlvxNaR3eJLyc1vFistoDKDgopSOqshg"  
+#define WIFI_SSID "mos"                   
+#define WIFI_PASS "123445566"                   
+
+#define RELAY_PIN_1      27   //D6
+#define RELAY_PIN_2      16   //D0
+#define RELAY_PIN_3       4   //D2
+#define RELAY_PIN_4       5   //D1 
+
+#define PUSH_BUTTON_1    32   //D4
+#define PUSH_BUTTON_2    14   //D5
+#define PUSH_BUTTON_3    13   //D7
+#define PUSH_BUTTON_4    22   //TX
+#define PUSH_AUTO_MODE   19
+#define SOUND            21
+#define LED_MODE         25
+
+#define VPIN_BUTTON_1       V12 
+#define VPIN_BUTTON_2       V13
+#define VPIN_BUTTON_3       V14
+#define VPIN_BUTTON_4       V15  
+#define VPIN_BUTTON_MODE    V16
+#define VPIN_BUTTON_TIME    V17
+
+#define VPIN_TEMPERA        V5 
+#define VPIN_HUMDITY        V6
+#define VPIN_TIME           V7
+#define VPIN_MANU           V8
+
+
+#define DHTPIN 23       
+#define DHTTYPE DHT11 
+
+DHT dht(DHTPIN, DHTTYPE);
+
+
+BLYNK_CONNECTED() {
+  Blynk.syncVirtual(VPIN_BUTTON_1);
+  Blynk.syncVirtual(VPIN_BUTTON_2);
+  Blynk.syncVirtual(VPIN_BUTTON_3);
+  Blynk.syncVirtual(VPIN_BUTTON_4);
+  Blynk.syncVirtual(VPIN_BUTTON_MODE);
+  Blynk.syncVirtual(VPIN_BUTTON_TIME);
+  Blynk.syncVirtual(VPIN_TEMPERA);
+  Blynk.syncVirtual(VPIN_HUMDITY);
+}
+
+BLYNK_WRITE(VPIN_BUTTON_1) {
+  relay1State = param.asInt();
+  sw1();
+}
+BLYNK_WRITE(VPIN_BUTTON_2) {
+  relay2State = param.asInt();
+  sw2();
+}
+BLYNK_WRITE(VPIN_BUTTON_3) {
+  relay3State = param.asInt();
+  sw3();
+}
+BLYNK_WRITE(VPIN_BUTTON_4) {
+  relay4State = param.asInt();
+  sw4();
+}
+BLYNK_WRITE(VPIN_BUTTON_MODE) {
+  AUTO_MODE = param.asInt();
+}
+BLYNK_WRITE(VPIN_BUTTON_TIME) {
+  TIME_MODE = param.asInt();
+}
+BLYNK_WRITE(VPIN_MANU) {
+  T_SET  = param.asInt();
+}
+BLYNK_WRITE(VPIN_TIME){
+  TIME_STATE = param.asInt();
+}
+
+
+void sendSensor()
+{
+  float h = dht.readHumidity();
+  float t = dht.readTemperature(); 
+  if ( AUTO_MODE == LOW || digitalRead(PUSH_AUTO_MODE) == LOW )
+  {
+    Blynk.virtualWrite(VPIN_BUTTON_MODE, LOW);
+    digitalWrite(LED_MODE, HIGH);
+    control_tem(t);
+  }
+  else if ( AUTO_MODE == HIGH || digitalRead(PUSH_AUTO_MODE) == HIGH )
+  {
+    Blynk.virtualWrite(VPIN_BUTTON_MODE, HIGH);
+    digitalWrite(LED_MODE, LOW);
+  }
+
+  if (isnan(h) || isnan(t)) {
+    Serial.println("Failed to read from DHT sensor!");
+    return;
+  }
+  Blynk.virtualWrite(V6, h);
+  Blynk.virtualWrite(V5, t);
+}
+
+void control_tem(int t)
+{
+   if (t>=35) {
+    relay3State = LOW ;
+    sw3();
+    Blynk.virtualWrite(VPIN_BUTTON_3,LOW);
+  }
+  if (t >= 28 and t < 35) {
+    relay2State = LOW ;
+    sw2();
+    Blynk.virtualWrite(VPIN_BUTTON_2,LOW);
+  }
+  if (t >= 24 and t < 28) {
+    relay1State = LOW ;
+    sw1();
+    Blynk.virtualWrite(VPIN_BUTTON_1,LOW);
+  }
+   if ( t < 24) {
+    sw4();
+    Blynk.virtualWrite(VPIN_BUTTON_4,HIGH);
+  }
+}
+
+
+void timeClock(){
+  Serial.println(TIME_STATE);
+  Serial.println(T_SET);
+  Serial.println("\n");
+if (TIME_MODE == 0){
+    if ( TIME_STATE == 0 ){
+        if ( T_SET == 1 ){
+          digitalWrite(RELAY_PIN_2, HIGH);
+          digitalWrite(RELAY_PIN_3, HIGH);
+          delay(500);
+          digitalWrite(RELAY_PIN_1, LOW);
+          Blynk.virtualWrite(VPIN_BUTTON_1, LOW);
+          Blynk.virtualWrite(VPIN_BUTTON_2, HIGH);
+          Blynk.virtualWrite(VPIN_BUTTON_3, HIGH);
+          Blynk.virtualWrite(VPIN_BUTTON_4, LOW);
+          Blynk.virtualWrite(VPIN_MANU, 4);
+          T_SET = 4 ;
+        }
+      if ( T_SET == 2 ){
+          digitalWrite(RELAY_PIN_1, HIGH);
+          digitalWrite(RELAY_PIN_3, HIGH);
+          delay(500);
+          digitalWrite(RELAY_PIN_2, LOW);
+          Blynk.virtualWrite(VPIN_BUTTON_2, LOW);
+          Blynk.virtualWrite(VPIN_BUTTON_1, HIGH);
+          Blynk.virtualWrite(VPIN_BUTTON_3, HIGH);
+          Blynk.virtualWrite(VPIN_BUTTON_4, LOW);
+          Blynk.virtualWrite(VPIN_MANU, 4);
+          T_SET = 4 ;
+      }
+      if ( T_SET == 3 ){
+          digitalWrite(RELAY_PIN_1, HIGH);
+          digitalWrite(RELAY_PIN_2, HIGH);
+          delay(500);
+          digitalWrite(RELAY_PIN_3, LOW);
+          Blynk.virtualWrite(VPIN_BUTTON_3, LOW);
+          Blynk.virtualWrite(VPIN_BUTTON_1, HIGH);
+          Blynk.virtualWrite(VPIN_BUTTON_2, HIGH);
+          Blynk.virtualWrite(VPIN_BUTTON_4, LOW);
+          Blynk.virtualWrite(VPIN_MANU, 4);
+          T_SET = 4 ;
+      }
+  }
+  if ( TIME_STATE == 1){
+    if ( T_SET == 4){
+      TIME_MODE = 1 ;
+      Blynk.virtualWrite(VPIN_BUTTON_TIME, HIGH);
+      sw4();
+      
+          }
+      }
+   }
+}
+void sw1 ()
+{
+  digitalWrite(RELAY_PIN_2, HIGH);
+  digitalWrite(RELAY_PIN_3, HIGH);
+  delay(500);
+  digitalWrite(RELAY_PIN_1, relay1State);
+  Blynk.virtualWrite(VPIN_BUTTON_2, HIGH);
+  Blynk.virtualWrite(VPIN_BUTTON_3, HIGH);
+  Blynk.virtualWrite(VPIN_BUTTON_4, LOW);
+}
+void sw2 ()
+{
+  digitalWrite(RELAY_PIN_1, HIGH);
+  digitalWrite(RELAY_PIN_3, HIGH);
+  delay(500);
+  digitalWrite(RELAY_PIN_2, relay2State);
+  Blynk.virtualWrite(VPIN_BUTTON_1, HIGH);
+  Blynk.virtualWrite(VPIN_BUTTON_3, HIGH);
+  Blynk.virtualWrite(VPIN_BUTTON_4, LOW);
+}
+void sw3 ()
+{
+  digitalWrite(RELAY_PIN_1, HIGH);
+  digitalWrite(RELAY_PIN_2, HIGH);
+  delay(500);
+  digitalWrite(RELAY_PIN_3, relay3State);
+  Blynk.virtualWrite(VPIN_BUTTON_1, HIGH);
+  Blynk.virtualWrite(VPIN_BUTTON_2, HIGH);
+  Blynk.virtualWrite(VPIN_BUTTON_4, LOW);
+}
+void sw4 ()
+{
+  digitalWrite(RELAY_PIN_1, HIGH);
+  digitalWrite(RELAY_PIN_2, HIGH);
+  digitalWrite(RELAY_PIN_3, HIGH);
+  Blynk.virtualWrite(VPIN_BUTTON_1, HIGH);
+  Blynk.virtualWrite(VPIN_BUTTON_2, HIGH);
+  Blynk.virtualWrite(VPIN_BUTTON_3, HIGH);
+  Blynk.virtualWrite(VPIN_BUTTON_4, HIGH); 
+}
+
+
+void checkPhysicalButton()
+{
+  if (digitalRead(PUSH_BUTTON_2) == LOW) {
+    relay2State = LOW ;
+    sw2();
+    Blynk.virtualWrite(VPIN_BUTTON_2,LOW);
+  }
+  if (digitalRead(PUSH_BUTTON_3) == LOW) {
+    relay3State = LOW ;
+    sw3();
+    Blynk.virtualWrite(VPIN_BUTTON_3,LOW);
+  }
+  if (digitalRead(PUSH_BUTTON_1) == LOW) {
+    relay1State = LOW ;
+    sw1();
+    Blynk.virtualWrite(VPIN_BUTTON_1,LOW);
+  }
+   if (digitalRead(PUSH_BUTTON_4) == LOW) {
+    sw4();
+    Blynk.virtualWrite(VPIN_BUTTON_4,HIGH);
+  }
+}
+
+void setup()
+{
+  Serial.begin(115200);
+  Blynk.begin(AUTH, WIFI_SSID, WIFI_PASS);
+
+  pinMode(PUSH_BUTTON_1, INPUT_PULLUP);
+  digitalWrite(RELAY_PIN_1, relay1State);
+  pinMode(PUSH_BUTTON_2, INPUT_PULLUP);
+  digitalWrite(RELAY_PIN_2, relay2State);
+  pinMode(PUSH_BUTTON_3, INPUT_PULLUP);
+  digitalWrite(RELAY_PIN_3, relay3State);
+  pinMode(PUSH_BUTTON_4, INPUT_PULLUP);
+  digitalWrite(RELAY_PIN_4, relay4State);
+  
+  pinMode(RELAY_PIN_1, OUTPUT);
+  pinMode(RELAY_PIN_2, OUTPUT);
+  pinMode(RELAY_PIN_3, OUTPUT);
+  pinMode(RELAY_PIN_4, OUTPUT);
+  
+  pinMode(LED_MODE, OUTPUT);
+  pinMode(PUSH_AUTO_MODE, INPUT_PULLUP);
+
+  dht.begin();
+  timer.setInterval(500L, checkPhysicalButton);
+  timer.setInterval(500L, sendSensor);
+  timer.setInterval(500L, timeClock);
+}
+
+void loop()
+{
+  timer.run();
+  Blynk.run();
+}
